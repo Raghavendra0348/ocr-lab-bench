@@ -10,17 +10,27 @@ import { analyzePdf, renderPdfPage } from "@/lib/pdf";
 import type { PdfAnalysis } from "@/lib/pdf";
 import { extractFields } from "@/lib/fieldExtraction";
 import type { LogEntry, RunRecord, Grade } from "@/lib/labTypes";
+import { mergeLineFragments, regionsFromOcrBoxes, understandDocument } from "@/document";
+import type { DocumentTextRegion, UnderstandResult } from "@/document";
+import { DOCUMENT_FIXTURES } from "@/document/testFixtures";
 import { DocumentPreview } from "@/components/lab/DocumentPreview";
 import { OcrResults } from "@/components/lab/OcrResults";
 import { MetricsPanel } from "@/components/lab/MetricsPanel";
 import { Diagnostics } from "@/components/lab/Diagnostics";
 import { FieldExtractionPanel, ManualVerification } from "@/components/lab/FieldsPanel";
 import type { ExpectedValues } from "@/components/lab/FieldsPanel";
+import { DocumentUnderstandingPanel } from "@/components/lab/DocumentUnderstanding";
+import { RegionInspector } from "@/components/lab/RegionInspector";
+import { PipelinePanel } from "@/components/lab/PipelinePanel";
+import type { PipelineStep, PipelineTimings } from "@/components/lab/PipelinePanel";
+import { DocumentVerification, EMPTY_FORM } from "@/components/lab/DocumentVerification";
+import type { FormValues } from "@/components/lab/DocumentVerification";
 import { GroundTruthPanel } from "@/components/lab/GroundTruth";
 import { QualityTests } from "@/components/lab/QualityTests";
 import { RunComparison } from "@/components/lab/RunComparison";
 import { Badge, Button, Checkbox, Notice, Panel, Row } from "@/components/lab/ui";
 import { EvaluationDashboard } from "@/components/lab/Evaluation";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
