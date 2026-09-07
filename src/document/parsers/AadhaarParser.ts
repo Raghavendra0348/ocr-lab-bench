@@ -1,5 +1,11 @@
 import { findAadhaarNumbers } from "../patterns/idPatterns";
+import {
+  cleanPersonName,
+  findRelationshipMarker,
+  looksLikePersonName,
+} from "../patterns/relationshipPatterns";
 import { getRegionsAbove, getRelativePosition } from "../spatial/spatialUtils";
+
 import type {
   DocumentClassification,
   DocumentParser,
