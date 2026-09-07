@@ -20,6 +20,18 @@ function absolute(url: string): string {
   return new URL(url, window.location.origin).toString();
 }
 
+/** Use a same-origin /public copy when it exists (local clones), else the hosted asset. */
+async function preferLocal(localPath: string, fallbackUrl: string): Promise<string> {
+  try {
+    const response = await fetch(absolute(localPath), { method: "HEAD" });
+    if (response.ok) return absolute(localPath);
+  } catch {
+    /* ignore — fall through to the hosted asset */
+  }
+  return fallbackUrl;
+}
+
+
 function withTimeout<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => {
