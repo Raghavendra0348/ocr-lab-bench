@@ -89,20 +89,31 @@ export class PaddleOCRProvider implements OCRProvider {
     try {
       const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
 
+      // Local-clone support: if the file exists in /public (see README "Run it
+      // locally"), use it. Otherwise fall back to the hosted asset URL.
+      const [detUrl, recUrl, wasmUrl] = await Promise.all([
+        preferLocal(`/models/${detAsset.original_filename}`, absolute(detAsset.url)),
+        preferLocal(`/models/${recAsset.original_filename}`, absolute(recAsset.url)),
+        preferLocal(
+          `/ort/${ortWasmAsset.original_filename}`,
+          absolute(ortWasmAsset.url),
+        ),
+      ]);
+
       const ocr = await withTimeout(
         PaddleOCR.create({
           lang: this.lang,
           ocrVersion: "PP-OCRv6",
           textDetectionModelName: DET_MODEL,
           textRecognitionModelName: REC_MODEL,
-          textDetectionModelAsset: { url: absolute(detAsset.url) },
-          textRecognitionModelAsset: { url: absolute(recAsset.url) },
+          textDetectionModelAsset: { url: detUrl },
+          textRecognitionModelAsset: { url: recUrl },
           worker: true,
           ortOptions: {
             backend: "wasm",
             // Same-origin ORT runtime assets instead of the package's CDN default.
             wasmPaths: {
-              wasm: absolute(ortWasmAsset.url),
+              wasm: wasmUrl,
               // Small loader served from /public so it keeps a JavaScript MIME type.
               mjs: absolute("/ort/ort-wasm-simd-threaded.mjs"),
             } as unknown as string,
@@ -110,6 +121,7 @@ export class PaddleOCRProvider implements OCRProvider {
             simd: true,
           },
         }),
+
         this.timeoutMs,
         "Model initialization",
       );
