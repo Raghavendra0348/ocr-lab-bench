@@ -141,6 +141,102 @@ function OcrLab() {
     [activeResult],
   );
 
+  const fixture = useMemo(
+    () => DOCUMENT_FIXTURES.find((item) => item.id === fixtureId) ?? null,
+    [fixtureId],
+  );
+
+  /**
+   * Unified region model: OCR boxes, PDF text-layer items or a synthetic test
+   * fixture all collapse into DocumentTextRegion[] before any interpretation.
+   */
+  const regions = useMemo<DocumentTextRegion[]>(() => {
+    if (fixture) return fixture.regions;
+    if (activeResult) {
+      return mergeLineFragments(
+        regionsFromOcrBoxes(activeResult.boxes, activeRun?.pageNumber ?? 1),
+      );
+    }
+    if (pdfAnalysis?.textBased) return pdfAnalysis.regionsByPage[textPdfPage] ?? [];
+    return [];
+  }, [fixture, activeResult, activeRun, pdfAnalysis, textPdfPage]);
+
+  const understanding = useMemo<UnderstandResult | null>(
+    () => (regions.length > 0 ? understandDocument(regions) : null),
+    [regions],
+  );
+
+  useEffect(() => {
+    if (!understanding) return;
+    setTimings((current) => ({
+      ...current,
+      classificationMs: understanding.timings.classificationMs,
+      fieldExtractionMs: understanding.timings.extractionMs,
+    }));
+  }, [understanding]);
+
+  const parsed = understanding?.parsed ?? null;
+
+  const highlightRegions = useMemo<DocumentTextRegion[]>(() => {
+    const ids = new Set<string>();
+    const candidate = selectedField ? parsed?.fields[selectedField] : null;
+    candidate?.sourceRegionIds.forEach((id) => ids.add(id));
+    if (hoveredRegionId) ids.add(hoveredRegionId);
+    return regions.filter((region) => ids.has(region.id));
+  }, [selectedField, parsed, hoveredRegionId, regions]);
+
+  const pipelineSteps = useMemo<PipelineStep[]>(() => {
+    const isPdf = fileInfo?.kind === "pdf";
+    const textPdf = Boolean(pdfAnalysis?.textBased);
+    return [
+      {
+        id: "file",
+        label: "File type detection",
+        state: fixture ? "skipped" : fileInfo ? "done" : "pending",
+        detail: fixture ? "synthetic test fixture" : (fileInfo?.kind ?? undefined),
+      },
+      {
+        id: "pdftext",
+        label: "PDF text-layer extraction (PDF.js)",
+        state: !isPdf ? "skipped" : pdfAnalysis ? "done" : "pending",
+        detail: pdfAnalysis ? `${pdfAnalysis.totalChars} chars` : undefined,
+      },
+      {
+        id: "ocr",
+        label: "PP-OCRv6_small OCR",
+        state: fixture
+          ? "skipped"
+          : activeResult
+            ? "done"
+            : isPdf && textPdf
+              ? "skipped"
+              : status === "error"
+                ? "failed"
+                : "pending",
+        detail: activeResult ? `${activeResult.boxes.length} boxes` : textPdf ? "not needed" : undefined,
+      },
+      {
+        id: "regions",
+        label: "Unified text regions",
+        state: regions.length > 0 ? "done" : "pending",
+        detail: regions.length > 0 ? `${regions.length} regions` : undefined,
+      },
+      {
+        id: "classify",
+        label: "Document classification",
+        state: parsed ? "done" : "pending",
+        detail: parsed?.documentType,
+      },
+      {
+        id: "candidates",
+        label: "Field candidate generation",
+        state: parsed ? "done" : "pending",
+        detail: parsed ? `${parsed.candidates.length} candidates` : undefined,
+      },
+    ];
+  }, [fileInfo, pdfAnalysis, activeResult, regions, parsed, status, fixture]);
+
+
   const initialize = useCallback(async () => {
     const provider = getProvider();
     if (provider.getInitInfo()) return provider;
