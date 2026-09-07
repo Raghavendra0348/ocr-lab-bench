@@ -331,7 +331,21 @@ function OcrLab() {
       setPdfAnalysis(null);
       setRuns([]);
       setActiveRunId(null);
+      setFixtureId(null);
+      setSelectedField(null);
+      setTextPdfPage(1);
+      setTimings({
+        pdfLoadMs: null,
+        pdfTextMs: null,
+        pdfRenderMs: null,
+        ocrInitMs: null,
+        ocrInferenceMs: null,
+        classificationMs: null,
+        fieldExtractionMs: null,
+        totalMs: null,
+      });
       if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+
 
       const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
       const isImage = file.type.startsWith("image/");
