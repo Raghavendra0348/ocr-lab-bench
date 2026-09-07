@@ -5,7 +5,6 @@ import type { OCRAssetInfo, OCRBox, OCRInitInfo, OCRResult } from "./ocrTypes";
 import detAsset from "../models-assets/PP-OCRv6_small_det_onnx_infer.tar.asset.json";
 import recAsset from "../models-assets/PP-OCRv6_small_rec_onnx_infer.tar.asset.json";
 import ortWasmAsset from "../ort-assets/ort-wasm-simd-threaded.wasm.asset.json";
-import ortMjsAsset from "../ort-assets/ort-wasm-simd-threaded.mjs.asset.json";
 
 const DET_MODEL = "PP-OCRv6_small_det";
 const REC_MODEL = "PP-OCRv6_small_rec";
@@ -104,7 +103,8 @@ export class PaddleOCRProvider implements OCRProvider {
             // Same-origin ORT runtime assets instead of the package's CDN default.
             wasmPaths: {
               wasm: absolute(ortWasmAsset.url),
-              mjs: absolute(ortMjsAsset.url),
+              // Small loader served from /public so it keeps a JavaScript MIME type.
+              mjs: absolute("/ort/ort-wasm-simd-threaded.mjs"),
             } as unknown as string,
             numThreads,
             simd: true,
