@@ -1,16 +1,20 @@
 import { useEffect, useRef } from "react";
 import type { OCRBox } from "@/ocr/ocrTypes";
+import type { DocumentTextRegion } from "@/document/types";
 
 export function DocumentPreview({
   imageUrl,
   boxes,
   showBoxes,
   showText,
+  highlight = [],
 }: {
   imageUrl: string | null;
   boxes: OCRBox[];
   showBoxes: boolean;
   showText: boolean;
+  /** Regions to outline as visual evidence for a selected field. */
+  highlight?: DocumentTextRegion[];
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -29,9 +33,26 @@ export function DocumentPreview({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(image, 0, 0);
 
-      if (!showBoxes || boxes.length === 0) return;
+      const unitBase = Math.max(1.5, Math.min(canvas.width, canvas.height) / 400);
+      const drawHighlights = () => {
+        highlight.forEach((region) => {
+          ctx.lineWidth = unitBase * 2.2;
+          ctx.strokeStyle = "hsl(48 100% 60%)";
+          ctx.fillStyle = "hsl(48 100% 60% / 0.22)";
+          const pad = unitBase * 2;
+          ctx.beginPath();
+          ctx.rect(region.x - pad, region.y - pad, region.width + pad * 2, region.height + pad * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+      };
 
-      const unit = Math.max(1.5, Math.min(canvas.width, canvas.height) / 400);
+      if (!showBoxes || boxes.length === 0) {
+        drawHighlights();
+        return;
+      }
+      const unit = unitBase;
+
       boxes.forEach((box, index) => {
         if (box.poly.length < 3) return;
         const hue = (index * 47) % 360;
