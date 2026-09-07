@@ -372,6 +372,14 @@ function OcrLab() {
             `PDF: ${analysis.pageCount} page(s), ${analysis.totalChars} extractable characters → ${analysis.textBased ? "text-based" : "scanned/image"}`,
           );
           const rendered = await renderPdfPage(file, 1, 2);
+          setTimings((current) => ({
+            ...current,
+            pdfLoadMs: analysis.timings.loadMs,
+            pdfTextMs: analysis.timings.textExtractionMs,
+            pdfRenderMs: rendered.renderMs,
+            totalMs:
+              analysis.timings.loadMs + analysis.timings.textExtractionMs + rendered.renderMs,
+          }));
           setSourceUrl(URL.createObjectURL(rendered.blob));
           setFileInfo({
             file,
@@ -380,10 +388,16 @@ function OcrLab() {
             width: rendered.width,
             height: rendered.height,
           });
-          if (!analysis.textBased) {
+          if (analysis.textBased) {
+            log(
+              "info",
+              "Text-based PDF: using the PDF.js text layer directly. OCR skipped — it is not needed.",
+            );
+          } else {
             log("info", "Scanned PDF: OCR-ing page 1 automatically.");
             await runOcr(rendered.blob, `${file.name} · page 1`, 1);
           }
+
         } catch (caught) {
           const message = caught instanceof Error ? caught.message : String(caught);
           setError(`Could not process this document. ${message}`);
