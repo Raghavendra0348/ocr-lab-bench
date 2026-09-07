@@ -679,10 +679,42 @@ function OcrLab() {
         )}
       </Panel>
 
+      <div className="mb-6">
+        <PipelinePanel
+          steps={pipelineSteps}
+          timings={timings}
+          pdfKind={
+            fileInfo?.kind === "pdf" && pdfAnalysis
+              ? pdfAnalysis.textBased
+                ? "TEXT PDF"
+                : "SCANNED PDF"
+              : null
+          }
+          extractionMethod={
+            fixture
+              ? "synthetic test fixture (no engine)"
+              : activeResult
+                ? "PP-OCRv6_small OCR regions"
+                : pdfAnalysis?.textBased
+                  ? "PDF.js text layer (OCR skipped)"
+                  : null
+          }
+          pagesProcessed={
+            fileInfo?.kind === "pdf" && pdfAnalysis
+              ? pdfAnalysis.textBased
+                ? `page ${textPdfPage} of ${pdfAnalysis.pageCount} (text layer)`
+                : `${runs.length} page run(s) of ${pdfAnalysis.pageCount}`
+              : fileInfo?.kind === "image"
+                ? "single image"
+                : null
+          }
+        />
+      </div>
+
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
         <Panel
           title="Document preview"
-          subtitle="The exact bitmap sent to the engine, with detection polygons drawn on top."
+          subtitle="The exact bitmap sent to the engine, with detection polygons and selected-field evidence drawn on top."
           actions={
             <>
               <Button variant={showBoxes ? "primary" : "default"} onClick={() => setShowBoxes((v) => !v)}>
@@ -702,10 +734,17 @@ function OcrLab() {
             boxes={activeResult?.boxes ?? []}
             showBoxes={showBoxes}
             showText={showBoxText}
+            highlight={highlightRegions}
           />
           {activeRun && (
             <p className="mt-2 font-mono text-xs text-muted-foreground">
               showing run “{activeRun.label}” · preprocessing: {activeRun.preprocessLabel}
+            </p>
+          )}
+          {highlightRegions.length > 0 && (
+            <p className="mt-1 font-mono text-xs text-warning">
+              highlighting {highlightRegions.length} evidence region(s)
+              {selectedField ? ` for “${selectedField}”` : ""}
             </p>
           )}
         </Panel>
@@ -714,8 +753,31 @@ function OcrLab() {
       </div>
 
       <div className="mb-6">
+        <DocumentUnderstandingPanel
+          parsed={parsed}
+          parserName={understanding?.parserName ?? null}
+          regions={regions}
+          selectedField={selectedField}
+          onSelectField={setSelectedField}
+        />
+      </div>
+
+      <div className="mb-6">
+        <DocumentVerification parsed={parsed} values={form} onChange={setForm} />
+      </div>
+
+      <div className="mb-6">
+        <RegionInspector
+          regions={regions}
+          highlightIds={highlightRegions.map((region) => region.id)}
+          onHoverRegion={setHoveredRegionId}
+        />
+      </div>
+
+      <div className="mb-6">
         <MetricsPanel initInfo={initInfo} result={activeResult} />
       </div>
+
 
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
         <QualityTests selected={qualityTest} onSelect={setQualityTest} />
