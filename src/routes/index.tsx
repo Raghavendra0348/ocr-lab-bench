@@ -622,15 +622,37 @@ function OcrLab() {
               {pdfAnalysis.totalChars} extractable characters across {pdfAnalysis.pageCount} page(s).
             </Notice>
             {pdfAnalysis.textBased && (
-              <textarea
-                readOnly
-                rows={8}
-                value={pdfAnalysis.pages
-                  .map((page) => `— page ${page.pageNumber} —\n${page.text}`)
-                  .join("\n\n")}
-                className="w-full resize-y rounded-md border border-border bg-input px-3 py-2 font-mono text-xs text-foreground"
-              />
+              <>
+                <p className="text-xs text-muted-foreground">
+                  This PDF already carries a text layer, so PDF.js text is used directly and OCR is
+                  skipped. The regions below come straight from the PDF, with exact coordinates.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="label-caps">Page for understanding</span>
+                  {pdfAnalysis.pages.map((page) => (
+                    <Button
+                      key={page.pageNumber}
+                      variant={textPdfPage === page.pageNumber ? "primary" : "default"}
+                      onClick={() => {
+                        setSelectedField(null);
+                        setTextPdfPage(page.pageNumber);
+                      }}
+                    >
+                      {page.pageNumber}
+                    </Button>
+                  ))}
+                </div>
+                <textarea
+                  readOnly
+                  rows={8}
+                  value={pdfAnalysis.pages
+                    .map((page) => `— page ${page.pageNumber} —\n${page.text}`)
+                    .join("\n\n")}
+                  className="w-full resize-y rounded-md border border-border bg-input px-3 py-2 font-mono text-xs text-foreground"
+                />
+              </>
             )}
+
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" onClick={() => void runPdfPage(1)} disabled={busy}>
                 {pdfAnalysis.textBased ? "Run OCR anyway (page 1)" : "Re-run OCR on page 1"}
