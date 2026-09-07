@@ -10,17 +10,27 @@ import { analyzePdf, renderPdfPage } from "@/lib/pdf";
 import type { PdfAnalysis } from "@/lib/pdf";
 import { extractFields } from "@/lib/fieldExtraction";
 import type { LogEntry, RunRecord, Grade } from "@/lib/labTypes";
+import { mergeLineFragments, regionsFromOcrBoxes, understandDocument } from "@/document";
+import type { DocumentTextRegion, UnderstandResult } from "@/document";
+import { DOCUMENT_FIXTURES } from "@/document/testFixtures";
 import { DocumentPreview } from "@/components/lab/DocumentPreview";
 import { OcrResults } from "@/components/lab/OcrResults";
 import { MetricsPanel } from "@/components/lab/MetricsPanel";
 import { Diagnostics } from "@/components/lab/Diagnostics";
 import { FieldExtractionPanel, ManualVerification } from "@/components/lab/FieldsPanel";
 import type { ExpectedValues } from "@/components/lab/FieldsPanel";
+import { DocumentUnderstandingPanel } from "@/components/lab/DocumentUnderstanding";
+import { RegionInspector } from "@/components/lab/RegionInspector";
+import { PipelinePanel } from "@/components/lab/PipelinePanel";
+import type { PipelineStep, PipelineTimings } from "@/components/lab/PipelinePanel";
+import { DocumentVerification, EMPTY_FORM } from "@/components/lab/DocumentVerification";
+import type { FormValues } from "@/components/lab/DocumentVerification";
 import { GroundTruthPanel } from "@/components/lab/GroundTruth";
 import { QualityTests } from "@/components/lab/QualityTests";
 import { RunComparison } from "@/components/lab/RunComparison";
 import { Badge, Button, Checkbox, Notice, Panel, Row } from "@/components/lab/ui";
 import { EvaluationDashboard } from "@/components/lab/Evaluation";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -89,6 +99,23 @@ function OcrLab() {
   const [recommendation, setRecommendation] = useState("");
   const [dragging, setDragging] = useState(false);
 
+  const [form, setForm] = useState<FormValues>(EMPTY_FORM);
+  const [selectedField, setSelectedField] = useState<string | null>(null);
+  const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
+  const [textPdfPage, setTextPdfPage] = useState(1);
+  const [fixtureId, setFixtureId] = useState<string | null>(null);
+  const [timings, setTimings] = useState<PipelineTimings>({
+    pdfLoadMs: null,
+    pdfTextMs: null,
+    pdfRenderMs: null,
+    ocrInitMs: null,
+    ocrInferenceMs: null,
+    classificationMs: null,
+    fieldExtractionMs: null,
+    totalMs: null,
+  });
+
+
   const log = useCallback((level: LogEntry["level"], message: string) => {
     setLogs((entries) => [...entries.slice(-199), { at: Date.now(), level, message }]);
   }, []);
@@ -114,6 +141,102 @@ function OcrLab() {
     [activeResult],
   );
 
+  const fixture = useMemo(
+    () => DOCUMENT_FIXTURES.find((item) => item.id === fixtureId) ?? null,
+    [fixtureId],
+  );
+
+  /**
+   * Unified region model: OCR boxes, PDF text-layer items or a synthetic test
+   * fixture all collapse into DocumentTextRegion[] before any interpretation.
+   */
+  const regions = useMemo<DocumentTextRegion[]>(() => {
+    if (fixture) return fixture.regions;
+    if (activeResult) {
+      return mergeLineFragments(
+        regionsFromOcrBoxes(activeResult.boxes, activeRun?.pageNumber ?? 1),
+      );
+    }
+    if (pdfAnalysis?.textBased) return pdfAnalysis.regionsByPage[textPdfPage] ?? [];
+    return [];
+  }, [fixture, activeResult, activeRun, pdfAnalysis, textPdfPage]);
+
+  const understanding = useMemo<UnderstandResult | null>(
+    () => (regions.length > 0 ? understandDocument(regions) : null),
+    [regions],
+  );
+
+  useEffect(() => {
+    if (!understanding) return;
+    setTimings((current) => ({
+      ...current,
+      classificationMs: understanding.timings.classificationMs,
+      fieldExtractionMs: understanding.timings.extractionMs,
+    }));
+  }, [understanding]);
+
+  const parsed = understanding?.parsed ?? null;
+
+  const highlightRegions = useMemo<DocumentTextRegion[]>(() => {
+    const ids = new Set<string>();
+    const candidate = selectedField ? parsed?.fields[selectedField] : null;
+    candidate?.sourceRegionIds.forEach((id) => ids.add(id));
+    if (hoveredRegionId) ids.add(hoveredRegionId);
+    return regions.filter((region) => ids.has(region.id));
+  }, [selectedField, parsed, hoveredRegionId, regions]);
+
+  const pipelineSteps = useMemo<PipelineStep[]>(() => {
+    const isPdf = fileInfo?.kind === "pdf";
+    const textPdf = Boolean(pdfAnalysis?.textBased);
+    return [
+      {
+        id: "file",
+        label: "File type detection",
+        state: fixture ? "skipped" : fileInfo ? "done" : "pending",
+        detail: fixture ? "synthetic test fixture" : (fileInfo?.kind ?? undefined),
+      },
+      {
+        id: "pdftext",
+        label: "PDF text-layer extraction (PDF.js)",
+        state: !isPdf ? "skipped" : pdfAnalysis ? "done" : "pending",
+        detail: pdfAnalysis ? `${pdfAnalysis.totalChars} chars` : undefined,
+      },
+      {
+        id: "ocr",
+        label: "PP-OCRv6_small OCR",
+        state: fixture
+          ? "skipped"
+          : activeResult
+            ? "done"
+            : isPdf && textPdf
+              ? "skipped"
+              : status === "error"
+                ? "failed"
+                : "pending",
+        detail: activeResult ? `${activeResult.boxes.length} boxes` : textPdf ? "not needed" : undefined,
+      },
+      {
+        id: "regions",
+        label: "Unified text regions",
+        state: regions.length > 0 ? "done" : "pending",
+        detail: regions.length > 0 ? `${regions.length} regions` : undefined,
+      },
+      {
+        id: "classify",
+        label: "Document classification",
+        state: parsed ? "done" : "pending",
+        detail: parsed?.documentType,
+      },
+      {
+        id: "candidates",
+        label: "Field candidate generation",
+        state: parsed ? "done" : "pending",
+        detail: parsed ? `${parsed.candidates.length} candidates` : undefined,
+      },
+    ];
+  }, [fileInfo, pdfAnalysis, activeResult, regions, parsed, status, fixture]);
+
+
   const initialize = useCallback(async () => {
     const provider = getProvider();
     if (provider.getInitInfo()) return provider;
@@ -123,6 +246,8 @@ function OcrLab() {
     try {
       const info = await provider.initialize();
       setInitInfo(info);
+      setTimings((current) => ({ ...current, ocrInitMs: info.initMs }));
+
       info.warnings.forEach((warning) => log("warn", warning));
       log(
         "info",
@@ -156,11 +281,21 @@ function OcrLab() {
 
         log("info", `Running OCR: ${label} (${formatBytes(blobForOcr.size)})`);
         const result = await provider.recognize(blobForOcr);
+        setTimings((current) => ({
+          ...current,
+          ocrInferenceMs: result.processingTimeMs,
+          totalMs:
+            (current.pdfLoadMs ?? 0) +
+            (current.pdfTextMs ?? 0) +
+            (current.pdfRenderMs ?? 0) +
+            result.processingTimeMs,
+        }));
         log(
           "info",
           `Done: ${result.metrics.recognizedLines} line(s), ${result.metrics.detectedBoxes} box(es), ${Math.round(result.metrics.totalMs)} ms engine / ${result.processingTimeMs} ms wall`,
         );
         if (result.boxes.length === 0) log("warn", "Empty OCR result — no text recognized.");
+
 
         const record: RunRecord = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -196,7 +331,21 @@ function OcrLab() {
       setPdfAnalysis(null);
       setRuns([]);
       setActiveRunId(null);
+      setFixtureId(null);
+      setSelectedField(null);
+      setTextPdfPage(1);
+      setTimings({
+        pdfLoadMs: null,
+        pdfTextMs: null,
+        pdfRenderMs: null,
+        ocrInitMs: null,
+        ocrInferenceMs: null,
+        classificationMs: null,
+        fieldExtractionMs: null,
+        totalMs: null,
+      });
       if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+
 
       const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
       const isImage = file.type.startsWith("image/");
@@ -223,6 +372,14 @@ function OcrLab() {
             `PDF: ${analysis.pageCount} page(s), ${analysis.totalChars} extractable characters → ${analysis.textBased ? "text-based" : "scanned/image"}`,
           );
           const rendered = await renderPdfPage(file, 1, 2);
+          setTimings((current) => ({
+            ...current,
+            pdfLoadMs: analysis.timings.loadMs,
+            pdfTextMs: analysis.timings.textExtractionMs,
+            pdfRenderMs: rendered.renderMs,
+            totalMs:
+              analysis.timings.loadMs + analysis.timings.textExtractionMs + rendered.renderMs,
+          }));
           setSourceUrl(URL.createObjectURL(rendered.blob));
           setFileInfo({
             file,
@@ -231,10 +388,16 @@ function OcrLab() {
             width: rendered.width,
             height: rendered.height,
           });
-          if (!analysis.textBased) {
+          if (analysis.textBased) {
+            log(
+              "info",
+              "Text-based PDF: using the PDF.js text layer directly. OCR skipped — it is not needed.",
+            );
+          } else {
             log("info", "Scanned PDF: OCR-ing page 1 automatically.");
             await runOcr(rendered.blob, `${file.name} · page 1`, 1);
           }
+
         } catch (caught) {
           const message = caught instanceof Error ? caught.message : String(caught);
           setError(`Could not process this document. ${message}`);
@@ -385,6 +548,40 @@ function OcrLab() {
           Drag and drop an image or PDF here
         </div>
 
+        <div className="mt-4 rounded-lg border border-border bg-surface p-4">
+          <span className="label-caps">Test mode — synthetic layouts (no OCR)</span>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Hand-written text regions with realistic geometry, used to exercise classification and
+            extraction on label-less layouts without running the engine.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {DOCUMENT_FIXTURES.map((item) => (
+              <Button
+                key={item.id}
+                variant={fixtureId === item.id ? "primary" : "default"}
+                disabled={busy}
+                onClick={() => {
+                  setSelectedField(null);
+                  setFixtureId((current) => (current === item.id ? null : item.id));
+                }}
+              >
+                {item.name}
+              </Button>
+            ))}
+            {fixtureId && (
+              <Button variant="ghost" onClick={() => setFixtureId(null)}>
+                Exit test mode
+              </Button>
+            )}
+          </div>
+          {fixture && (
+            <p className="mt-2 font-mono text-xs text-warning">
+              Synthetic fixture active — “{fixture.name}”. {fixture.note}
+            </p>
+          )}
+        </div>
+
+
         {fileInfo && (
           <div className="mt-4 grid gap-x-8 md:grid-cols-2">
             <div>
@@ -425,15 +622,37 @@ function OcrLab() {
               {pdfAnalysis.totalChars} extractable characters across {pdfAnalysis.pageCount} page(s).
             </Notice>
             {pdfAnalysis.textBased && (
-              <textarea
-                readOnly
-                rows={8}
-                value={pdfAnalysis.pages
-                  .map((page) => `— page ${page.pageNumber} —\n${page.text}`)
-                  .join("\n\n")}
-                className="w-full resize-y rounded-md border border-border bg-input px-3 py-2 font-mono text-xs text-foreground"
-              />
+              <>
+                <p className="text-xs text-muted-foreground">
+                  This PDF already carries a text layer, so PDF.js text is used directly and OCR is
+                  skipped. The regions below come straight from the PDF, with exact coordinates.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="label-caps">Page for understanding</span>
+                  {pdfAnalysis.pages.map((page) => (
+                    <Button
+                      key={page.pageNumber}
+                      variant={textPdfPage === page.pageNumber ? "primary" : "default"}
+                      onClick={() => {
+                        setSelectedField(null);
+                        setTextPdfPage(page.pageNumber);
+                      }}
+                    >
+                      {page.pageNumber}
+                    </Button>
+                  ))}
+                </div>
+                <textarea
+                  readOnly
+                  rows={8}
+                  value={pdfAnalysis.pages
+                    .map((page) => `— page ${page.pageNumber} —\n${page.text}`)
+                    .join("\n\n")}
+                  className="w-full resize-y rounded-md border border-border bg-input px-3 py-2 font-mono text-xs text-foreground"
+                />
+              </>
             )}
+
             <div className="flex flex-wrap gap-2">
               <Button variant="primary" onClick={() => void runPdfPage(1)} disabled={busy}>
                 {pdfAnalysis.textBased ? "Run OCR anyway (page 1)" : "Re-run OCR on page 1"}
@@ -460,10 +679,42 @@ function OcrLab() {
         )}
       </Panel>
 
+      <div className="mb-6">
+        <PipelinePanel
+          steps={pipelineSteps}
+          timings={timings}
+          pdfKind={
+            fileInfo?.kind === "pdf" && pdfAnalysis
+              ? pdfAnalysis.textBased
+                ? "TEXT PDF"
+                : "SCANNED PDF"
+              : null
+          }
+          extractionMethod={
+            fixture
+              ? "synthetic test fixture (no engine)"
+              : activeResult
+                ? "PP-OCRv6_small OCR regions"
+                : pdfAnalysis?.textBased
+                  ? "PDF.js text layer (OCR skipped)"
+                  : null
+          }
+          pagesProcessed={
+            fileInfo?.kind === "pdf" && pdfAnalysis
+              ? pdfAnalysis.textBased
+                ? `page ${textPdfPage} of ${pdfAnalysis.pageCount} (text layer)`
+                : `${runs.length} page run(s) of ${pdfAnalysis.pageCount}`
+              : fileInfo?.kind === "image"
+                ? "single image"
+                : null
+          }
+        />
+      </div>
+
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
         <Panel
           title="Document preview"
-          subtitle="The exact bitmap sent to the engine, with detection polygons drawn on top."
+          subtitle="The exact bitmap sent to the engine, with detection polygons and selected-field evidence drawn on top."
           actions={
             <>
               <Button variant={showBoxes ? "primary" : "default"} onClick={() => setShowBoxes((v) => !v)}>
@@ -483,10 +734,17 @@ function OcrLab() {
             boxes={activeResult?.boxes ?? []}
             showBoxes={showBoxes}
             showText={showBoxText}
+            highlight={highlightRegions}
           />
           {activeRun && (
             <p className="mt-2 font-mono text-xs text-muted-foreground">
               showing run “{activeRun.label}” · preprocessing: {activeRun.preprocessLabel}
+            </p>
+          )}
+          {highlightRegions.length > 0 && (
+            <p className="mt-1 font-mono text-xs text-warning">
+              highlighting {highlightRegions.length} evidence region(s)
+              {selectedField ? ` for “${selectedField}”` : ""}
             </p>
           )}
         </Panel>
@@ -495,8 +753,31 @@ function OcrLab() {
       </div>
 
       <div className="mb-6">
+        <DocumentUnderstandingPanel
+          parsed={parsed}
+          parserName={understanding?.parserName ?? null}
+          regions={regions}
+          selectedField={selectedField}
+          onSelectField={setSelectedField}
+        />
+      </div>
+
+      <div className="mb-6">
+        <DocumentVerification parsed={parsed} values={form} onChange={setForm} />
+      </div>
+
+      <div className="mb-6">
+        <RegionInspector
+          regions={regions}
+          highlightIds={highlightRegions.map((region) => region.id)}
+          onHoverRegion={setHoveredRegionId}
+        />
+      </div>
+
+      <div className="mb-6">
         <MetricsPanel initInfo={initInfo} result={activeResult} />
       </div>
+
 
       <div className="mb-6 grid gap-6 xl:grid-cols-2">
         <QualityTests selected={qualityTest} onSelect={setQualityTest} />
