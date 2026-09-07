@@ -14,7 +14,7 @@ export interface OCRProvider {
 
 export class OCRError extends Error {
   readonly stage: "init" | "recognize";
-  readonly cause?: unknown;
+  override readonly cause?: unknown;
 
   constructor(stage: "init" | "recognize", message: string, cause?: unknown) {
     super(message);
