@@ -13,6 +13,8 @@ export interface PaddleOCRProviderOptions {
   lang?: string;
   /** OCR timeout guard in ms. */
   timeoutMs?: number;
+  /** Run inference in a Web Worker (default true). */
+  worker?: boolean;
   /**
    * Resolves a packaged asset path (e.g. "models/PP-OCRv6_small_det_onnx_infer.tar")
    * to a loadable URL. Provided by the Chrome extension build, which serves the
@@ -72,11 +74,13 @@ export class PaddleOCRProvider implements OCRProvider {
   private initPromise: Promise<OCRInitInfo> | null = null;
   private readonly lang: string;
   private readonly timeoutMs: number;
+  private readonly useWorker: boolean;
   private readonly resolveAsset: ((path: string) => string) | null;
 
   constructor(options: PaddleOCRProviderOptions = {}) {
     this.lang = options.lang ?? "en";
     this.timeoutMs = options.timeoutMs ?? 180_000;
+    this.useWorker = options.worker ?? true;
     this.resolveAsset = options.resolveAsset ?? null;
   }
 
@@ -137,7 +141,7 @@ export class PaddleOCRProvider implements OCRProvider {
           textRecognitionModelName: REC_MODEL,
           textDetectionModelAsset: { url: detUrl },
           textRecognitionModelAsset: { url: recUrl },
-          worker: true,
+          worker: this.useWorker,
           ortOptions: {
             backend: "wasm",
             // Same-origin ORT runtime assets instead of the package's CDN default.
@@ -180,7 +184,7 @@ export class PaddleOCRProvider implements OCRProvider {
         modelRecognition: REC_MODEL,
         lang: this.lang,
         ocrVersion: "PP-OCRv6",
-        worker: true,
+        worker: this.useWorker,
         requestedBackend: "wasm",
         backend: String(summary?.["backend"] ?? "wasm"),
         detProvider: String(summary?.["detProvider"] ?? "unknown"),

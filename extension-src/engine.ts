@@ -76,6 +76,7 @@ export interface ReadResult {
 type ProgressFn = (percent: number, message: string) => void;
 
 let resolveAssetFn: ((path: string) => string) | null = null;
+let useWorker = true;
 let provider: PaddleOCRProvider | null = null;
 
 function assertConfigured(): (path: string) => string {
@@ -87,7 +88,7 @@ function assertConfigured(): (path: string) => string {
 
 function getProvider(): PaddleOCRProvider {
   const resolveAsset = assertConfigured();
-  if (!provider) provider = new PaddleOCRProvider({ resolveAsset });
+  if (!provider) provider = new PaddleOCRProvider({ resolveAsset, worker: useWorker });
   return provider;
 }
 
@@ -255,6 +256,7 @@ export interface EngineApi {
 const api: EngineApi = {
   configure(config) {
     resolveAssetFn = config.resolveAsset;
+    if (typeof config.worker === "boolean") useWorker = config.worker;
   },
   readDocument,
   matchFormFields,
