@@ -18,8 +18,22 @@ export interface PdfAnalysis {
   timings: { loadMs: number; textExtractionMs: number };
 }
 
+let pdfWorkerSrcOverride: string | null = null;
+
+/**
+ * Points PDF.js at a packaged worker file. Used by the Chrome extension build,
+ * where the worker is served from chrome-extension:// instead of the web root.
+ */
+export function setPdfWorkerSrc(url: string): void {
+  pdfWorkerSrcOverride = url;
+}
+
 async function loadPdfjs() {
   const pdfjs = await import("pdfjs-dist");
+  if (pdfWorkerSrcOverride) {
+    pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrcOverride;
+    return pdfjs;
+  }
   const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
   pdfjs.GlobalWorkerOptions.workerSrc = (worker as { default: string }).default;
   return pdfjs;
