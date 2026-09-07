@@ -470,6 +470,9 @@ function OcrLab() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
+            <Link to="/extension">
+              <Badge tone="info">↓ Download Chrome Extension</Badge>
+            </Link>
             <Badge tone="success">🔒 Local Processing</Badge>
             <Badge tone={status === "error" ? "danger" : status === "ready" ? "accent" : "neutral"}>
               engine: {status}
