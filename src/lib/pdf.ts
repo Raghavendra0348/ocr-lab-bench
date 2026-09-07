@@ -22,7 +22,7 @@ async function openDocument(file: Blob) {
   const pdfjs = await loadPdfjs();
   const data = new Uint8Array(await file.arrayBuffer());
   try {
-    return await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+    return await pdfjs.getDocument({ data }).promise;
   } catch (error) {
     throw new Error(
       `PDF could not be opened (corrupted, encrypted or unsupported): ${
@@ -51,7 +51,7 @@ export async function analyzePdf(file: Blob): Promise<PdfAnalysis> {
   }
 
   const pageCount = doc.numPages;
-  await doc.destroy();
+  doc.cleanup();
 
   // Heuristic: a real text layer usually yields well over 100 characters/page.
   const textBased = totalChars / Math.max(1, pageCount) >= 100;
@@ -77,6 +77,6 @@ export async function renderPdfPage(
     if (!blob) throw new Error("Rendered PDF page could not be encoded as an image.");
     return { blob, width: canvas.width, height: canvas.height };
   } finally {
-    await doc.destroy();
+    doc.cleanup();
   }
 }
