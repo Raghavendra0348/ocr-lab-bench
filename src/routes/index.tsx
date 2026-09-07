@@ -99,6 +99,23 @@ function OcrLab() {
   const [recommendation, setRecommendation] = useState("");
   const [dragging, setDragging] = useState(false);
 
+  const [form, setForm] = useState<FormValues>(EMPTY_FORM);
+  const [selectedField, setSelectedField] = useState<string | null>(null);
+  const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
+  const [textPdfPage, setTextPdfPage] = useState(1);
+  const [fixtureId, setFixtureId] = useState<string | null>(null);
+  const [timings, setTimings] = useState<PipelineTimings>({
+    pdfLoadMs: null,
+    pdfTextMs: null,
+    pdfRenderMs: null,
+    ocrInitMs: null,
+    ocrInferenceMs: null,
+    classificationMs: null,
+    fieldExtractionMs: null,
+    totalMs: null,
+  });
+
+
   const log = useCallback((level: LogEntry["level"], message: string) => {
     setLogs((entries) => [...entries.slice(-199), { at: Date.now(), level, message }]);
   }, []);
