@@ -548,6 +548,40 @@ function OcrLab() {
           Drag and drop an image or PDF here
         </div>
 
+        <div className="mt-4 rounded-lg border border-border bg-surface p-4">
+          <span className="label-caps">Test mode — synthetic layouts (no OCR)</span>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Hand-written text regions with realistic geometry, used to exercise classification and
+            extraction on label-less layouts without running the engine.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {DOCUMENT_FIXTURES.map((item) => (
+              <Button
+                key={item.id}
+                variant={fixtureId === item.id ? "primary" : "default"}
+                disabled={busy}
+                onClick={() => {
+                  setSelectedField(null);
+                  setFixtureId((current) => (current === item.id ? null : item.id));
+                }}
+              >
+                {item.name}
+              </Button>
+            ))}
+            {fixtureId && (
+              <Button variant="ghost" onClick={() => setFixtureId(null)}>
+                Exit test mode
+              </Button>
+            )}
+          </div>
+          {fixture && (
+            <p className="mt-2 font-mono text-xs text-warning">
+              Synthetic fixture active — “{fixture.name}”. {fixture.note}
+            </p>
+          )}
+        </div>
+
+
         {fileInfo && (
           <div className="mt-4 grid gap-x-8 md:grid-cols-2">
             <div>
