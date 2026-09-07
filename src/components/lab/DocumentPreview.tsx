@@ -79,13 +79,16 @@ export function DocumentPreview({
         ctx.fillStyle = `hsl(${hue} 95% 78%)`;
         ctx.fillText(label, box.bbox.x1 + padding, boxY + fontSize + padding * 0.1);
       });
+
+      drawHighlights();
     };
     image.src = imageUrl;
 
     return () => {
       cancelled = true;
     };
-  }, [imageUrl, boxes, showBoxes, showText]);
+  }, [imageUrl, boxes, showBoxes, showText, highlight]);
+
 
   if (!imageUrl) {
     return (
