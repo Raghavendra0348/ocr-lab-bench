@@ -24,7 +24,13 @@ import { matchFormFields, type FormFieldDescriptor, type FormMatchResult } from 
 
 export interface EngineConfig {
   resolveAsset: (path: string) => string;
+  /**
+   * Run recognition in a Web Worker. Extension sandbox pages have an opaque
+   * origin and cannot load a worker script, so they pass false.
+   */
+  worker?: boolean;
 }
+
 
 export interface ReadInput {
   bytes: ArrayBuffer;
