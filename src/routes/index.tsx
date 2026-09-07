@@ -246,6 +246,8 @@ function OcrLab() {
     try {
       const info = await provider.initialize();
       setInitInfo(info);
+      setTimings((current) => ({ ...current, ocrInitMs: info.initMs }));
+
       info.warnings.forEach((warning) => log("warn", warning));
       log(
         "info",
