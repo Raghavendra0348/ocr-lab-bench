@@ -13,6 +13,13 @@ export interface PaddleOCRProviderOptions {
   lang?: string;
   /** OCR timeout guard in ms. */
   timeoutMs?: number;
+  /**
+   * Resolves a packaged asset path (e.g. "models/PP-OCRv6_small_det_onnx_infer.tar")
+   * to a loadable URL. Provided by the Chrome extension build, which serves the
+   * models and ONNX Runtime files from chrome-extension:// instead of the web root.
+   * When omitted, the web app's own /public paths (with hosted fallback) are used.
+   */
+  resolveAsset?: (path: string) => string;
 }
 
 function absolute(url: string): string {
@@ -65,10 +72,12 @@ export class PaddleOCRProvider implements OCRProvider {
   private initPromise: Promise<OCRInitInfo> | null = null;
   private readonly lang: string;
   private readonly timeoutMs: number;
+  private readonly resolveAsset: ((path: string) => string) | null;
 
   constructor(options: PaddleOCRProviderOptions = {}) {
     this.lang = options.lang ?? "en";
     this.timeoutMs = options.timeoutMs ?? 180_000;
+    this.resolveAsset = options.resolveAsset ?? null;
   }
 
   getInitInfo(): OCRInitInfo | null {
@@ -101,16 +110,24 @@ export class PaddleOCRProvider implements OCRProvider {
     try {
       const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
 
-      // Local-clone support: if the file exists in /public (see README "Run it
-      // locally"), use it. Otherwise fall back to the hosted asset URL.
-      const [detUrl, recUrl, wasmUrl] = await Promise.all([
-        preferLocal(`/models/${detAsset.original_filename}`, absolute(detAsset.url)),
-        preferLocal(`/models/${recAsset.original_filename}`, absolute(recAsset.url)),
-        preferLocal(
-          `/ort/${ortWasmAsset.original_filename}`,
-          absolute(ortWasmAsset.url),
-        ),
-      ]);
+      // Packaged-asset mode (Chrome extension): every file comes from the
+      // extension package, so nothing is fetched from any origin at all.
+      // Web mode: use a /public copy when present, else the hosted asset URL.
+      const resolve = this.resolveAsset;
+      const [detUrl, recUrl, wasmUrl] = resolve
+        ? [
+            resolve(`models/${detAsset.original_filename}`),
+            resolve(`models/${recAsset.original_filename}`),
+            resolve(`ort/${ortWasmAsset.original_filename}`),
+          ]
+        : await Promise.all([
+            preferLocal(`/models/${detAsset.original_filename}`, absolute(detAsset.url)),
+            preferLocal(`/models/${recAsset.original_filename}`, absolute(recAsset.url)),
+            preferLocal(`/ort/${ortWasmAsset.original_filename}`, absolute(ortWasmAsset.url)),
+          ]);
+      const mjsUrl = resolve
+        ? resolve("ort/ort-wasm-simd-threaded.mjs")
+        : absolute("/ort/ort-wasm-simd-threaded.mjs");
 
       const ocr = await withTimeout(
         PaddleOCR.create({
@@ -126,8 +143,8 @@ export class PaddleOCRProvider implements OCRProvider {
             // Same-origin ORT runtime assets instead of the package's CDN default.
             wasmPaths: {
               wasm: wasmUrl,
-              // Small loader served from /public so it keeps a JavaScript MIME type.
-              mjs: absolute("/ort/ort-wasm-simd-threaded.mjs"),
+              // Small loader served locally so it keeps a JavaScript MIME type.
+              mjs: mjsUrl,
             } as unknown as string,
             numThreads,
             simd: true,
