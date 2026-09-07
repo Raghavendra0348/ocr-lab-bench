@@ -35,10 +35,15 @@ export const AadhaarParser: DocumentParser = {
     // Document-template rule: name immediately above a DOB / gender line.
     const anchor = regions.find((r) => /date of birth|year of birth|\bdob\b|\bmale\b|\bfemale\b/i.test(r.text));
     if (anchor) {
-      const above = getRegionsAbove(anchor, regions, 3)[0];
+      // Walk upwards past relationship lines (S/O, D/O, Father's Name …):
+      // those carry a related person's name, never the holder's own.
+      const above = getRegionsAbove(anchor, regions, 4).find(
+        (region) => !findRelationshipMarker(region.text) && looksLikePersonName(region.text),
+      );
       if (above) {
-        const cleaned = above.text.replace(/[^A-Za-z .'\-]/g, " ").replace(/\s+/g, " ").trim();
+        const cleaned = cleanPersonName(above.text);
         if (cleaned.length >= 3) {
+
           candidates.push(
             makeCandidate({
               field: "name",
