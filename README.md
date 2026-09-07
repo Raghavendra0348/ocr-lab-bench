@@ -17,15 +17,42 @@ project. It is not a Chrome extension and it contains no government-form validat
 - Nothing on screen is simulated: every character, confidence score, box and timing comes from the
   real model output. When the model returns nothing, the app says so.
 
-## Run it
+## Run it locally (downloaded code)
+
+Requires Node 20+ (Bun optional).
 
 ```bash
-bun install
-bun run dev
+bun install        # or: npm install
+bun run dev        # or: npm run dev
 ```
 
-Open the app, upload an image or PDF, and press **Run OCR**. The first run downloads the model
-files once (from this app's own origin) and initializes the worker; later runs reuse it.
+Then open http://localhost:8080.
+
+### One extra step: the model files
+
+The big model/runtime files are **not inside the downloaded zip** — they are hosted
+externally, so a local clone must supply its own copies. Create the folders and download:
+
+```bash
+mkdir -p public/models public/ort
+
+# PP-OCRv6_small detection + recognition (official PaddleX ONNX archives)
+curl -L -o public/models/PP-OCRv6_small_det_onnx_infer.tar \
+  https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_small_det_onnx_infer.tar
+curl -L -o public/models/PP-OCRv6_small_rec_onnx_infer.tar \
+  https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_small_rec_onnx_infer.tar
+
+# ONNX Runtime Web WASM binary + loader (from the installed npm package)
+cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm public/ort/
+cp node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs  public/ort/
+```
+
+The app checks `public/models` and `public/ort` first and only falls back to the hosted
+copies if they are missing, so no code change is needed. Everything still runs offline in
+the browser after the first load.
+
+Then upload an image or PDF and press **Run OCR**.
+
 
 ## Engine and models
 
