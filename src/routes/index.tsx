@@ -261,16 +261,9 @@ function OcrLab() {
     [log, runOcr, sourceUrl],
   );
 
-  const pickFile = (accept: string) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = accept;
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (file) void handleFile(file);
-    };
-    input.click();
-  };
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+
 
   const runImageOcr = () => {
     if (!fileInfo || fileInfo.kind !== "image") return;
