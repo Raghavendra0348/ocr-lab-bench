@@ -4,7 +4,7 @@ export interface PipelineStep {
   id: string;
   label: string;
   state: "pending" | "done" | "skipped" | "failed";
-  detail?: string;
+  detail?: string | undefined;
 }
 
 export interface PipelineTimings {
