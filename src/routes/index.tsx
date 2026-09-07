@@ -325,10 +325,14 @@ function OcrLab() {
         subtitle="Images run through PP-OCRv6_small directly. PDFs are checked for a text layer first."
         actions={
           <>
-            <Button variant="primary" onClick={() => pickFile("image/*")} disabled={busy}>
+            <Button
+              variant="primary"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={busy}
+            >
               Upload Image
             </Button>
-            <Button onClick={() => pickFile("application/pdf")} disabled={busy}>
+            <Button onClick={() => pdfInputRef.current?.click()} disabled={busy}>
               Upload PDF
             </Button>
             {status === "idle" && (
@@ -339,7 +343,30 @@ function OcrLab() {
           </>
         }
       >
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void handleFile(file);
+          }}
+        />
+        <input
+          ref={pdfInputRef}
+          type="file"
+          accept="application/pdf"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file) void handleFile(file);
+          }}
+        />
         <div
+
           onDragOver={(event) => {
             event.preventDefault();
             setDragging(true);
