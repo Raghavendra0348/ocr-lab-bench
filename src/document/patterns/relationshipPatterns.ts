@@ -116,6 +116,10 @@ const NAME_STOPWORDS = [
 
 /** Heuristic test: could this string be a person's name? */
 export function looksLikePersonName(value: string): boolean {
+  // A region carrying a relationship marker ("S/O Suresh Kumar") is never the
+  // holder's own name, so it must not pass as a bare person name.
+  if (findRelationshipMarker(value)) return false;
+
   const cleaned = cleanPersonName(value);
   if (cleaned.length < 3 || cleaned.length > 60) return false;
   const words = cleaned.split(" ").filter((w) => w.length > 1);
