@@ -98,7 +98,21 @@ const NAME_STOPWORDS = [
   "enrolment",
   "enrollment",
   "vid",
+  // Label words: a leftover label fragment such as "/ Guardian" must never be
+  // accepted as the person's name.
+  "guardian",
+  "father",
+  "mother",
+  "spouse",
+  "husband",
+  "wife",
+  "name",
+  "applicant",
+  "candidate",
+  "student",
+  "holder",
 ];
+
 
 /** Heuristic test: could this string be a person's name? */
 export function looksLikePersonName(value: string): boolean {
