@@ -281,11 +281,21 @@ function OcrLab() {
 
         log("info", `Running OCR: ${label} (${formatBytes(blobForOcr.size)})`);
         const result = await provider.recognize(blobForOcr);
+        setTimings((current) => ({
+          ...current,
+          ocrInferenceMs: result.processingTimeMs,
+          totalMs:
+            (current.pdfLoadMs ?? 0) +
+            (current.pdfTextMs ?? 0) +
+            (current.pdfRenderMs ?? 0) +
+            result.processingTimeMs,
+        }));
         log(
           "info",
           `Done: ${result.metrics.recognizedLines} line(s), ${result.metrics.detectedBoxes} box(es), ${Math.round(result.metrics.totalMs)} ms engine / ${result.processingTimeMs} ms wall`,
         );
         if (result.boxes.length === 0) log("warn", "Empty OCR result — no text recognized.");
+
 
         const record: RunRecord = {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
