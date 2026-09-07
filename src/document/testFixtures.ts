@@ -42,7 +42,7 @@ export const DOCUMENT_FIXTURES: DocumentFixture[] = [
         ["S/O Suresh Kumar", 120, 196, 280, 26],
         ["DOB: 12/04/2004", 120, 232, 240, 26],
         ["Male", 120, 266, 80, 24],
-        ["1234 5678 9012", 120, 330, 320, 38],
+        ["4321 5678 9012", 120, 330, 320, 38],
         ["Unique Identification Authority of India", 120, 380, 420, 20],
       ],
       "a",

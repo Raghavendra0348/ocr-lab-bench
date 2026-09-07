@@ -91,7 +91,7 @@ export function DocumentVerification({
           label="Form ID number"
           value={values.idNumber}
           onChange={(value) => onChange({ ...values, idNumber: value })}
-          placeholder="1234 5678 9012"
+          placeholder="4321 5678 9012"
           mono
         />
       </div>
