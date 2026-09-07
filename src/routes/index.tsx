@@ -20,6 +20,7 @@ import { GroundTruthPanel } from "@/components/lab/GroundTruth";
 import { QualityTests } from "@/components/lab/QualityTests";
 import { RunComparison } from "@/components/lab/RunComparison";
 import { Badge, Button, Checkbox, Notice, Panel, Row } from "@/components/lab/ui";
+import { EvaluationDashboard } from "@/components/lab/Evaluation";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -576,11 +577,11 @@ function OcrLab() {
       </div>
 
       <div className="mb-10">
-        <EvaluationSection
+        <EvaluationDashboard
           grades={grades}
-          setGrades={setGrades}
+          onGradeChange={(id, grade) => setGrades((current) => ({ ...current, [id]: grade }))}
           recommendation={recommendation}
-          setRecommendation={setRecommendation}
+          onRecommendationChange={setRecommendation}
         />
       </div>
 
@@ -591,31 +592,3 @@ function OcrLab() {
     </main>
   );
 }
-
-function EvaluationSection({
-  grades,
-  setGrades,
-  recommendation,
-  setRecommendation,
-}: {
-  grades: Record<string, Grade>;
-  setGrades: (value: Record<string, Grade>) => void;
-  recommendation: string;
-  setRecommendation: (value: string) => void;
-}) {
-  const EvaluationDashboard = require_EvaluationDashboard();
-  return (
-    <EvaluationDashboard
-      grades={grades}
-      onGradeChange={(id: string, grade: Grade) => setGrades({ ...grades, [id]: grade })}
-      recommendation={recommendation}
-      onRecommendationChange={setRecommendation}
-    />
-  );
-}
-
-function require_EvaluationDashboard() {
-  return EvaluationDashboardImpl;
-}
-
-import { EvaluationDashboard as EvaluationDashboardImpl } from "@/components/lab/Evaluation";
