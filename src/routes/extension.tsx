@@ -66,7 +66,7 @@ function ExtensionDownload() {
             {downloading ? "Downloading…" : "Download extension ZIP"}
           </Button>
         </div>
-        {error && <Notice tone="error">{error}</Notice>}
+        {error && <Notice tone="danger">{error}</Notice>}
       </Panel>
 
       <Panel title="How to load & test">
@@ -107,7 +107,7 @@ function ExtensionDownload() {
           <li>Gemini / backend cloud OCR is <strong>off by default</strong> — only runs if you explicitly enable it in extension storage</li>
         </ul>
         <div className="mt-3">
-          <Badge tone="ok">No cloud calls</Badge>{" "}
+          <Badge tone="success">No cloud calls</Badge>{" "}
           <Badge tone="info">All inference on-device</Badge>
         </div>
       </Panel>
