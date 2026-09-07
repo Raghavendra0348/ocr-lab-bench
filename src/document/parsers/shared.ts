@@ -252,8 +252,13 @@ export function dobCandidates(
     const dates = findDates(region.text);
     const labelInSameRegion = hasDateLabel(region.text);
     for (const date of dates) {
+      // A bare year inside an identifier ("BC/2024/887123") is not a birth date.
+      if (date.yearOnly && !labelInSameRegion && /[A-Za-z]{2}[-/]|[-/]\d{4}[-/]/.test(region.text)) {
+        continue;
+      }
       const plausible = isPlausibleBirthDate(date);
       const evidence: string[] = [`Date pattern "${date.raw}" detected`];
+
       let spatial = 0.4;
       let pattern = date.valid ? 0.8 : 0.4;
       const sources = [region];
