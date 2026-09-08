@@ -157,6 +157,7 @@ export function matchFormFields(
 ): FormMatchResult {
   const rows: FormMatchRow[] = [];
   const fieldMap: Record<string, string> = {};
+  const reviewMap: Record<string, string> = {};
   const docType = (read.documentType || "unknown").toLowerCase();
 
   for (const field of fields) {
@@ -198,6 +199,8 @@ export function matchFormFields(
           existingValue: field.currentValue || null,
           evidence: [],
           autoFill: false,
+          fillable: false,
+          needsReview: false,
         });
       }
       continue;
@@ -207,7 +210,10 @@ export function matchFormFields(
     const existing = (field.currentValue || "").trim();
     const conflict = existing.length > 0 && !sameValue(semantic, existing, value);
     const state = candidate.state;
-    const autoFill = state === "high" && existing.length === 0;
+    // The target is empty and nothing disagrees: safe to write when the user asks.
+    const fillable = existing.length === 0 && !conflict && value.trim().length > 0;
+    const autoFill = fillable && state === "high" && candidate.confidence >= HIGH_CONFIDENCE;
+    const needsReview = fillable && !autoFill;
 
     rows.push({
       fieldKey: field.fieldKey,
@@ -221,15 +227,21 @@ export function matchFormFields(
       existingValue: existing || null,
       evidence: candidate.evidence,
       autoFill,
+      fillable,
+      needsReview,
     });
 
-    if (autoFill && candidate.confidence >= HIGH_CONFIDENCE) fieldMap[field.fieldKey] = value;
+    if (autoFill) fieldMap[field.fieldKey] = value;
+    else if (needsReview) reviewMap[field.fieldKey] = value;
   }
 
   return {
     rows,
     fieldMap,
+    reviewMap,
+    fillMap: { ...fieldMap, ...reviewMap },
     reviewCount: rows.filter((row) => row.state === "review").length,
     conflictCount: rows.filter((row) => row.conflict).length,
   };
 }
+
