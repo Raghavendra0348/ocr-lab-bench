@@ -71,10 +71,13 @@ export interface FormMatchResult {
 
 const HIGH_CONFIDENCE = 0.85;
 
+// Order matters: a label like "Full Name of Applicant (as per Aadhaar Card)"
+// must classify as a name field, not as an Aadhaar-number field. Name / date /
+// gender patterns are therefore tested before the identifier patterns, and the
+// identifier patterns refuse labels that are really asking for something else.
+const NOT_AN_ID = /name|mobile|phone|contact|address|email|linked|photo|father|mother|spouse/;
+
 const PATTERNS: Array<{ semantic: SemanticType; test: RegExp; negate?: RegExp }> = [
-  { semantic: "AADHAAR_NUMBER", test: /aadhaar|aadhar|uid(ai)?\b/ },
-  { semantic: "PAN_NUMBER", test: /\bpan\b|permanent account/ },
-  { semantic: "CERTIFICATE_NUMBER", test: /certificate\s*(no|number|id)|cert\s*no|registration\s*(no|number)|hall\s*ticket|application\s*(no|number)/ },
   { semantic: "DOB", test: /d\.?o\.?b|date of birth|birth\s*date|birthday|janm/ },
   { semantic: "GENDER", test: /gender|\bsex\b/ },
   { semantic: "FATHER_NAME", test: /father|guardian|\bs\/o\b|parent name/ },
@@ -85,7 +88,15 @@ const PATTERNS: Array<{ semantic: SemanticType; test: RegExp; negate?: RegExp }>
     test: /full name|applicant name|candidate name|student name|holder name|your name|^name$|\bname\b/,
     negate: /father|mother|spouse|husband|wife|guardian|user|file|company|bank|school|college|city|village/,
   },
+  { semantic: "AADHAAR_NUMBER", test: /aadhaar|aadhar|uid(ai)?\b/, negate: NOT_AN_ID },
+  { semantic: "PAN_NUMBER", test: /\bpan\b|permanent account/, negate: NOT_AN_ID },
+  {
+    semantic: "CERTIFICATE_NUMBER",
+    test: /certificate\s*(no|number|id)|cert\s*no|registration\s*(no|number)|hall\s*ticket|application\s*(no|number)/,
+    negate: NOT_AN_ID,
+  },
 ];
+
 
 /** Classifies one form control from its label / name / placeholder text. */
 export function inferSemanticType(field: FormFieldDescriptor): SemanticType {
