@@ -50,15 +50,24 @@ export interface FormMatchRow {
   evidence: string[];
   /** Only true rows are auto-applied by "Fill all". */
   autoFill: boolean;
+  /** Safe to write on an explicit user click (empty target, no conflict). */
+  fillable: boolean;
+  /** Filled but the value needs the user's confirmation. */
+  needsReview: boolean;
 }
 
 export interface FormMatchResult {
   rows: FormMatchRow[];
   /** { fieldKey: value } for the high-confidence, non-conflicting rows only. */
   fieldMap: Record<string, string>;
+  /** { fieldKey: value } for found-but-uncertain rows, safe to fill on request. */
+  reviewMap: Record<string, string>;
+  /** fieldMap + reviewMap: everything the "Autofill" button should write. */
+  fillMap: Record<string, string>;
   reviewCount: number;
   conflictCount: number;
 }
+
 
 const HIGH_CONFIDENCE = 0.85;
 
